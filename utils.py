@@ -11,10 +11,10 @@ class counter:
         self.correct = 0
         self.incorrect = 0
 
-    def correct(self):
+    def correctAdd(self):
         self.correct += 1
     
-    def inorrect(self):
+    def incorrectAdd(self):
         self.incorrect += 1
 
 

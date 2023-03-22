@@ -28,6 +28,7 @@ class AiFitness():
         self.state_sequence = [None, None, None]
         self.counter = counter()
         self.track_count = [0, 0, 0]
+        self.angles = None
         # self.inactive_time = 0
 
         self.pose = mp.solutions.pose.Pose(min_detection_confidence=0.5,
@@ -70,11 +71,11 @@ class AiFitness():
         hip_shoulder = angle((hip.x, 0), (hip.x, hip.y), (Lshoulder.x, Lshoulder.y))
         knee_hip = angle((hip.x, hip.y), (knee.x, knee.y), (hip.x, 0))
         ankle_knee = angle((knee.x, knee.y), (ankle.x, ankle.y), (knee.x, 0))
+        self.angles = (hip_shoulder, knee_hip, ankle_knee)
+        return self.angles
 
-        return (hip_shoulder, knee_hip, ankle_knee)
-
-    def update_state(self, angles):
-        (hip_shoulder, knee_hip, ankle_knee) = angles
+    def update_state(self):
+        (hip_shoulder, knee_hip, ankle_knee) = self.angles
 
         if self.state_threshold["s1"][0] <= knee_hip < self.state_threshold["s1"][1]:
             self.state = TrackState.s1
@@ -87,42 +88,48 @@ class AiFitness():
 
     def update_counter(self):
         state_val = self.state-1
-        self.update_other_count(state_val)
+        self.update_other_count()
 
         if self.track_count[state_val] < self.state_count_threshold:
             if self.track_count[state_val] == 1:
                 self.state_sequence.pop(0)
                 self.state_sequence.append(self.state)
-                cv2.putText(self.image, f'state: S{self.state}', (200, 100), cv2.FONT_HERSHEY_COMPLEX, 1, (255, 0,0))
-                self.addCounterToImg()
+            cv2.putText(self.image, f'state: S{self.state}', (1000, 200), cv2.FONT_HERSHEY_TRIPLEX, 1, (255, 0,0))
+            
         else:
             self.counter.reset()
-            cv2.putText(self.image, f'state: S{self.state}', (200, 100), cv2.FONT_HERSHEY_COMPLEX, 1, (255, 0,0))
-            self.addCounterToImg()
+            cv2.putText(self.image, f'state: S{self.state}', (1000, 200), cv2.FONT_HERSHEY_TRIPLEX, 1, (255, 0,0))
 
-        
-        if self.state_sequence[0] == 3 and self.state_sequence[1] == 2 and self.state_sequence[0] ==1:
-            self.counter.correct()
-            self.addCounterToImg()
-        elif self.state_sequence[0] == 1 and self.state_sequence[1] == 2 and self.state_sequence[0] ==1:
-            self.counter.incorrect()
-            self.addCounterToImg()
+        self.addCounterToImg()
 
+        if self.angles[0]<5 and self.angles[1]<5 and self.angles[2]<5 and not (None in self.state_sequence):
+            if self.state_sequence[0] == 3 and self.state_sequence[1] == 2 and self.state_sequence[2] ==1:
+                self.counter.correctAdd()
+                self.resetStateSequence()
+                list(map(lambda x: 0*x, self.track_count))
+                
+            elif self.state_sequence[0] == 1 and self.state_sequence[1] == 2 and self.state_sequence[0] ==1:
+                self.counter.incorrectAdd()
+                self.resetStateSequence()
+                list(map(lambda x: 0*x, self.track_count))
+
+            self.addCounterToImg()
     
-    def update_other_count(self, val):
+    def update_other_count(self):
+        val = self.state-1
         if val == 0:
             self.track_count[0] += 1
             self.track_count[1] = 0
             self.track_count[2] = 0
 
         elif val == 1:
-            self.track_count[0] == 0
+            self.track_count[0] = 0
             self.track_count[1] += 1
-            self.track_count[2] == 0
+            self.track_count[2] = 0
 
         elif val == 2:
-            self.track_count[0] == 0
-            self.track_count[1] == 0
+            self.track_count[0] = 0
+            self.track_count[1] = 0
             self.track_count[2] += 1
 
     def deal_inactive_count(self):
@@ -131,10 +138,18 @@ class AiFitness():
         self.counter.reset() if (self.track_count[self.state-1] > self.state_count_threshold) else None
         self.addCounterToImg()      
 
+    def resetStateSequence(self):
+        '''
+        reset the state_sequnce when the squat has been performed
+        '''
+        for i, val in enumerate(self.state_sequence):
+            self.state_sequence[i] = None
+
     def addCounterToImg(self) -> np.ndarray:
 
-        cv2.putText(self.image, f"Correct: {self.counter.correct}", (1000, 100), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 255, 0))
-        cv2.putText(self.image, f"InCorrect: {self.counter.incorrect}", (1000, 200), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 0, 255))
+        cv2.rectangle(self.image, (970, 50), (1250, 170), (0, 0, 0), -1)
+        cv2.putText(self.image, f"Correct: {self.counter.correct}", (1000, 100), cv2.FONT_HERSHEY_TRIPLEX, 1, (0, 255, 0))
+        cv2.putText(self.image, f"InCorrect: {self.counter.incorrect}", (1000, 150), cv2.FONT_HERSHEY_TRIPLEX, 1, (0, 0, 255))
 
     def addCircle(self, res: Dict[str, None]):
         h, w, _ = self.image.shape
@@ -158,7 +173,7 @@ class AiFitness():
         for i in range(len(lines)-1):
             cv2.line(self.image, lines[i], lines[i+1], (200, 200, 255), 6)
             cv2.line(self.image, lines[i+1], (lines[i+1][0], lines[i+1][1]-100), (100, 100, 255), 5)
-            cv2.putText(self.image, f"{angles[0]}", (lines[i+1][0]+20, lines[i+1][1]+20), cv2.FONT_HERSHEY_COMPLEX, 0.5, (255, 255, 255))
+            cv2.putText(self.image, f"{round(angles[i])}", (lines[i+1][0]+20, lines[i+1][1]+20), cv2.FONT_HERSHEY_COMPLEX, 0.5, (255, 255, 255))
 
         cv2.ellipse(self.image, (x2, y2), (40, 40), 0, -90-angles[0], -90, (255, 255, 255), 3)
         cv2.ellipse(self.image, (x3, y3), (40, 40), 0, -90, -90+angles[1], (255, 255, 255), 3)

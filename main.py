@@ -27,8 +27,8 @@ def fitness_algo(img):
   
         else:
             angles = fitness.calculate_angles(req_res)
-            fitness.update_state(angles)
-            fitness.deal_inactive_count()
+            fitness.update_state()
+            # fitness.deal_inactive_count()
             return fitness.image
 
     else:
@@ -54,12 +54,17 @@ def main():
     
     vid = r"squats_trim.mp4"
     cap = cv2.VideoCapture(vid)
+    result = cv2.VideoWriter('filename.avi', 
+                         cv2.VideoWriter_fourcc(*'MJPG'),
+                         15, (1280, 720))
+
 
     while(cap.isOpened()):
         ret, frame = cap.read()
         img = fitness_algo(frame)
 
-        cv2.imshow("window", img)
+        # cv2.imshow("window", img)
+        result.write(img)
 
         if cv2.waitKey(1) and 0xFF == ord('q'):
             break
