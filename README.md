@@ -4,3 +4,6 @@
 
 - Uses Media Pipe pose estimation for the keypoint detection.
 - Taken help of this algorithm available on OpenCV-BLog (shown belows)
+
+![application_flowchart_ai_fitness_trainer-782x1024](https://user-images.githubusercontent.com/86848360/233112019-2b04425a-b372-4b6d-8846-139a54861173.png)
+
